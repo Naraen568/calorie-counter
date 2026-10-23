@@ -1,0 +1,41 @@
+!pip install roboflow mediapipe-model-maker
+
+# 1. Install dependencies
+!pip install -q mediapipe-model-maker roboflow
+
+import os
+from roboflow import Roboflow
+from mediapipe_model_maker import object_detector
+
+# 2. Download IndianFoodNet-30 (30 Specific Indian Dishes)
+# Authenticating with your provided API key
+rf = Roboflow(api_key="KhHf7uPKcxeXMrIQ1aN9")
+# Pulling from the public IndianFoodNet repository
+project = rf.workspace("myworkspace-yqb7k").project("indianfoodnet-kbtja")
+dataset = project.version(1).download("voc")
+
+# 3. Load the dataset into MediaPipe
+train_dataset = object_detector.Dataset.from_pascal_voc_folder(
+    data_dir=os.path.join(dataset.location, "train")
+)
+val_dataset = object_detector.Dataset.from_pascal_voc_folder(
+    data_dir=os.path.join(dataset.location, "valid")
+)
+
+# 4. Configure the EfficientDet-Lite0 model
+spec = object_detector.SupportedModels.EFFICIENTDET_LITE0
+# 40 epochs is ideal since distinguishing 30 different curries/breads takes more iterations
+hparams = object_detector.HParams(export_dir='indian_food_specific', epochs=40, batch_size=8)
+options = object_detector.ObjectDetectorOptions(supported_model=spec, hparams=hparams)
+
+# 5. Train the model
+print("Starting training... this will take a few minutes.")
+model = object_detector.ObjectDetector.create(
+    train_data=train_dataset,
+    validation_data=val_dataset,
+    options=options
+)
+
+# 6. Export the TFLite file
+model.export_model()
+print("Export complete! Download model.tflite from the 'indian_food_specific' folder.")
